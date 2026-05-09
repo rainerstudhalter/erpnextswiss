@@ -38,12 +38,10 @@ def enqueue(args):
 def execute(doctype, name, title, lang=None, print_format=None, hashname=None, is_private=1, file_name=None):
     if lang:
         frappe.local.lang = lang
-
     doctype_folder = create_folder(_(doctype), "Home")
     title_folder = create_folder(title, doctype_folder)
 
     pdf_data = get_pdf_data(doctype, name, print_format)
-
     save_and_attach(pdf_data, doctype, name, title_folder, hashname, is_private, file_name)
     return
 
@@ -88,7 +86,7 @@ def save_and_attach(content, to_doctype, to_name, folder, hashname=None, is_priv
         "file_name": file_name,
         "folder": folder,
         "is_private": is_private,
-        "content": content
+        "content": content,
     })
     f.flags.ignore_permissions = True
     try:

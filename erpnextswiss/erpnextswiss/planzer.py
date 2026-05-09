@@ -8,7 +8,7 @@ from frappe.utils.password import get_decrypted_password
 import os
 import codecs
 from datetime import datetime, timedelta
-import pysftp
+import paramiko
 
 @frappe.whitelist()
 def create_shipment(shipment_name, debug=False):
@@ -193,9 +193,13 @@ def upload_shipment_file(file_name, target_path):
         frappe.throw( _("Planzer Settings are missing connection details (host, username, password)") )
 
     try:
-        with connect_sftp(settings) as sftp:
-            with sftp.cd(target_path):          # e.g. "Eingang"
-                sftp.put(file_name)            # upload file
+        ssh = connect_sftp(settings)
+        if ssh:
+            with ssh.open_sftp() as sftp:
+                sftp.chdir(target_path)          # e.g. "Eingang"
+                basename = os.path.basename(file_name)
+                sftp.put(file_name, basename)            # upload file
+            ssh.close()
                 
     except Exception as err:
         frappe.log_error( err, "Planzer Upload Shipment File Failed")
@@ -203,18 +207,29 @@ def upload_shipment_file(file_name, target_path):
     return
 
 def connect_sftp(settings):
-    cnopts = pysftp.CnOpts()
-    cnopts.hostkeys = settings.get('host_keys') or None        # keep or None to push None instead of ""  
-    
-    connection = pysftp.Connection(
-            settings.get('host'), 
-            port=settings.get('port') or 22,
+    try:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        
+        host_keys = settings.get('host_keys')
+        if host_keys:
+            try:
+                ssh.load_host_keys(host_keys)
+            except Exception:
+                pass
+                
+        ssh.connect(
+            hostname=settings.get('host'), 
+            port=int(settings.get('port') or 22),
             username=settings.get('username'), 
             password=get_decrypted_password(settings.get('doctype'), settings.get('name'), 'password', False),
-            cnopts=cnopts
+            look_for_keys=False,
+            allow_agent=False
         )
-    
-    return connection
+        return ssh
+    except Exception as e:
+        frappe.log_error(str(e), "Planzer SFTP Connection Failed")
+        return None
 
 """
 Extract the numeric part of the shipment

@@ -16,7 +16,7 @@ dependencies = [
     "opencv-python",
     "pymupdf",
     "fintech",
-    "pysftp",
+    "paramiko",
     "icalendar",
     "lxml",
     "paramiko<4",
